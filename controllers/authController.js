@@ -1,0 +1,189 @@
+const UserModel = require("../models/userModel.js");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const {
+    generateAccessToken,
+    generateRefreshToken,
+} = require("../utils/generateToken.js");
+const sendTokens = require("../utils/sendTokens.js");
+const sendEmail = require("../utils/sendEmail.js");
+
+/* -----------------------------
+   REGISTER
+----------------------------- */
+exports.register = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+
+        if (!name || !email || !password)
+            return res.status(400).json({ message: "All fields required" });
+
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser)
+            return res.status(400).json({ message: "User already exists" });
+
+        const user = new UserModel({ name, email, password });
+
+        // Create email verification token
+        const verificationToken = user.createEmailVerificationToken();
+
+        await user.save();
+
+        const verifyURL = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+
+        await sendEmail({
+            to: user.email,
+            subject: "Verify Your Email",
+            html: `
+        <h2>Welcome ${user.name}</h2>
+        <p>Please verify your email by clicking the link below:</p>
+        <a href="${verifyURL}">${verifyURL}</a>
+      `,
+        });
+
+        res.status(201).json({
+            message: "Registered successfully. Please verify your email.",
+        });
+    } catch (error) {
+        console.log("register error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/* -----------------------------
+   VERIFY EMAIL
+----------------------------- */
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.query;
+
+        if (!token)
+            return res.status(400).json({ message: "Invalid token" });
+
+        const hashedToken = crypto
+            .createHash("sha256")
+            .update(token)
+            .digest("hex");
+
+        const user = await UserModel.findOne({
+            emailVerificationToken: hashedToken,
+        });
+
+        if (!user)
+            return res.status(400).json({ message: "Token invalid" });
+
+        if (user.isEmailVerified)
+            return res.status(200).json({ message: "Email already verified" });
+
+        if (user.emailVerificationExpire < Date.now())
+            return res.status(400).json({ message: "Token expired" });
+
+        user.isEmailVerified = true;
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpire = undefined;
+        user.lastLogin = new Date();
+        await user.save();
+
+        const accessToken = generateAccessToken(user._id);
+        const refreshToken = generateRefreshToken(user._id);
+        sendTokens(res, accessToken, refreshToken);
+
+        return res.status(200).json({ message: "Email verified & logged in" });
+
+    } catch (error) {
+        console.log("verify email error:", error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+/* -----------------------------
+   LOGIN
+----------------------------- */
+exports.login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password)
+            return res.status(400).json({ message: "All fields required" });
+
+        const user = await UserModel.findOne({ email }).select("+password");
+
+        if (!user)
+            return res.status(401).json({ message: "Invalid credentials" });
+
+        const isMatch = await user.comparePassword(password);
+
+        if (!isMatch)
+            return res.status(401).json({ message: "Invalid credentials" });
+
+        if (!user.isEmailVerified)
+            return res
+                .status(403)
+                .json({ message: "Please verify your email before login." });
+
+        user.lastLogin = new Date();
+        await user.save();
+
+        const accessToken = generateAccessToken(user._id);
+        const refreshToken = generateRefreshToken(user._id);
+
+        sendTokens(res, accessToken, refreshToken);
+
+        res.status(200).json({
+            message: "Login successful",
+        });
+    } catch (error) {
+        console.log("login error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/* -----------------------------
+   REFRESH ACCESS TOKEN
+----------------------------- */
+exports.refreshToken = async (req, res) => {
+    try {
+        const token = req.cookies.refreshToken;
+
+        if (!token)
+            return res.status(401).json({ message: "No refresh token" });
+
+        const payload = jwt.verify(
+            token,
+            process.env.JWT_REFRESH_SECRET
+        );
+
+        const accessToken = generateAccessToken(payload.id);
+
+        res.status(200).json({ accessToken });
+    } catch (error) {
+        res.status(403).json({ message: "Invalid or expired refresh token" });
+    }
+};
+
+/* -----------------------------
+   LOGOUT
+----------------------------- */
+exports.logout = async (req, res) => {
+    try {
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            maxAge: 0,
+        });
+
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            maxAge: 0,
+        });
+
+        res.status(200).json({ message: "Logged out successfully" });
+
+    } catch (error) {
+        console.log("logout Error: ", error)
+        res.status(500).json({ message: error.message });
+    }
+};
