@@ -18,15 +18,30 @@ exports.register = async (req, res) => {
         if (!name || !email || !password)
             return res.status(400).json({ message: "All fields required" });
 
+        // --- Password Strength Validation ---
+        const passwordErrors = [];
+        if (password.length < 8) passwordErrors.push("at least 8 characters");
+        if (!/[A-Z]/.test(password)) passwordErrors.push("one uppercase letter");
+        if (!/[a-z]/.test(password)) passwordErrors.push("one lowercase letter");
+        if (!/[0-9]/.test(password)) passwordErrors.push("one number");
+        if (!/[^A-Za-z0-9]/.test(password)) passwordErrors.push("one special character");
+
+        if (passwordErrors.length > 0) {
+            return res.status(400).json({
+                message: `Password must contain ${passwordErrors.join(", ")}.`
+            });
+        }
+
+        // --- Check existing user ---
         const existingUser = await UserModel.findOne({ email });
         if (existingUser)
             return res.status(400).json({ message: "User already exists" });
 
+        // --- Create User ---
         const user = new UserModel({ name, email, password });
 
-        // Create email verification token
+        // --- Email Verification ---
         const verificationToken = user.createEmailVerificationToken();
-
         await user.save();
 
         const verifyURL = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
@@ -35,10 +50,10 @@ exports.register = async (req, res) => {
             to: user.email,
             subject: "Verify Your Email",
             html: `
-        <h2>Welcome ${user.name}</h2>
-        <p>Please verify your email by clicking the link below:</p>
-        <a href="${verifyURL}">${verifyURL}</a>
-      `,
+                <h2>Welcome ${user.name}</h2>
+                <p>Please verify your email by clicking the link below:</p>
+                <a href="${verifyURL}">${verifyURL}</a>
+            `,
         });
 
         res.status(201).json({
@@ -109,12 +124,12 @@ exports.login = async (req, res) => {
         const user = await UserModel.findOne({ email }).select("+password");
 
         if (!user)
-            return res.status(401).json({ message: "Invalid credentials" });
+            return res.status(404).json({ message: "User Not Found, Please Register First !" });
 
         const isMatch = await user.comparePassword(password);
 
         if (!isMatch)
-            return res.status(401).json({ message: "Invalid credentials" });
+            return res.status(400).json({ message: "Invalid credentials" });
 
         if (!user.isEmailVerified)
             return res
@@ -130,7 +145,7 @@ exports.login = async (req, res) => {
         sendTokens(res, accessToken, refreshToken);
 
         res.status(200).json({
-            message: "Login successful",
+            message: "Login successfull",
         });
     } catch (error) {
         console.log("login error:", error);
