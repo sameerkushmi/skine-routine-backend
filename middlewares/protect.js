@@ -4,7 +4,7 @@ const protect = (req, res, next) => {
     try {
         const { accessToken } = req.cookies
 
-        if (!accessToken) 
+        if (!accessToken)
             return res.status(401).json({ message: 'No token, authorization denied' })
 
         const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET);
@@ -12,9 +12,8 @@ const protect = (req, res, next) => {
         next();
 
     } catch (error) {
-        console.log("protect middleware erro : ", error)
-        res.status(500).json({
-            message: error.message
+        return res.status(401).json({
+            message: "Invalid or expired access token"
         })
     }
 }

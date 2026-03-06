@@ -172,13 +172,15 @@ exports.refreshToken = async (req, res) => {
             return res.status(403).json({ message: "Invalid refresh token" });
         }
 
-        const user = UserModel.findById(decode.id)
+        const user = await UserModel.findById(decode.id)
 
-        if(!user) 
-            return res.status(404).json({message: 'User Not Found'}) 
+        if (!user)
+            return res.status(404).json({ message: 'User Not Found' })
 
-        generateAccessToken(user._id);
-        generateRefreshToken(user._id);
+        const accessToken = generateAccessToken(user._id);
+        const refreshToken = generateRefreshToken(user._id);
+
+        sendTokens(res, accessToken, refreshToken);
 
         res.status(200).json({ message: 'Token refreshed' });
     } catch (error) {
