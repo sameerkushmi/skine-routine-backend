@@ -163,15 +163,20 @@ exports.refreshToken = async (req, res) => {
         if (!token)
             return res.status(401).json({ message: "No refresh token" });
 
-        const payload = jwt.verify(
+        const decode = jwt.verify(
             token,
             process.env.JWT_REFRESH_SECRET
         );
 
-        const accessToken = generateAccessToken(payload.id);
+        if (!decode) {
+            return res.status(403).json({ message: "Invalid refresh token" });
+        }
 
-        res.status(200).json({ accessToken });
+        generateAccessToken(decode.id);
+
+        res.status(200).json({ message: 'Token refreshed' });
     } catch (error) {
+        console.log("refresh token Error : ", error)
         res.status(403).json({ message: "Invalid or expired refresh token" });
     }
 };
