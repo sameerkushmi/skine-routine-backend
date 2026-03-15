@@ -10,6 +10,7 @@ exports.createProduct = async (req, res) => {
         const {
             name,
             brand,
+            shortDescription,
             description,
             category,
             price,
@@ -30,6 +31,7 @@ exports.createProduct = async (req, res) => {
             name,
             brand,
             slug: slugify(name, { lower: true }),
+            shortDescription,
             description,
             category,
             price,

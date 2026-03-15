@@ -12,6 +12,11 @@ const ProductSchema = new mongoose.Schema({
     brand: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true }, // SEO friendly URL
     description: { type: String, required: true },
+    shortDescription: {
+        type: String,
+        required: true,
+        maxlength: 180
+    },
     category: { type: String, required: true }, // e.g., 'Serum', 'Cleanser'
     tags: [{ type: String }], // optional, e.g., ["Vitamin C", "Brightening"]
     images: [{
