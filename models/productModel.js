@@ -14,7 +14,16 @@ const ProductSchema = new mongoose.Schema({
     description: { type: String, required: true },
     category: { type: String, required: true }, // e.g., 'Serum', 'Cleanser'
     tags: [{ type: String }], // optional, e.g., ["Vitamin C", "Brightening"]
-    images: [{ type: String, required: true }], // URLs
+    images: [{
+        url: {
+            type: String,
+            required: true,
+        },
+        public_id: {
+            type: String,
+            required: true,
+        }
+    }], // URLs
     price: { type: Number, required: true },
     oldPrice: { type: Number }, // for discounts
     stock: { type: Number, default: 0 }, // inventory count
