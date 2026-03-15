@@ -12,6 +12,7 @@ const protect = (req, res, next) => {
         next();
 
     } catch (error) {
+        console.log("protect middleware error:",error)
         return res.status(401).json({
             message: "Invalid or expired access token"
         })
