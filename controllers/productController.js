@@ -1,7 +1,7 @@
 const Product = require("../models/productModel");
 const cloudinary = require("../config/cloudinary");
 const slugify = require("slugify");
-
+const {nanoid} = require('nanoid')
 
 // CREATE PRODUCT
 exports.createProduct = async (req, res) => {
@@ -16,7 +16,6 @@ exports.createProduct = async (req, res) => {
             price,
             oldPrice,
             stock,
-            sku,
             tags,
             ingredients,
             additionalInfo
@@ -26,6 +25,8 @@ exports.createProduct = async (req, res) => {
             url: file.path,
             public_id: file.filename
         }));
+
+        const usage = req.body.usage ? JSON.parse(req.body.usage) : [];
 
         const product = await Product.create({
             name,
@@ -37,8 +38,9 @@ exports.createProduct = async (req, res) => {
             price,
             oldPrice,
             stock,
-            sku,
+            sku: req.body.sku || `SKU-${nanoid(8)}`, // generate if empty,
             tags,
+            usage,
             ingredients,
             additionalInfo,
             images
@@ -50,6 +52,7 @@ exports.createProduct = async (req, res) => {
         });
 
     } catch (error) {
+        console.log("create productt error:", error)
         res.status(500).json({
             success: false,
             message: error.message

@@ -32,21 +32,12 @@ const ProductSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     oldPrice: { type: Number }, // for discounts
     stock: { type: Number, default: 0 }, // inventory count
-    sku: { type: String, unique: true }, // Stock Keeping Unit
+    sku: { type: String}, // Stock Keeping Unit
     rating: { type: Number, default: 0 },
     numReviews: { type: Number, default: 0 },
     reviews: [ReviewSchema],
     featured: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
-    variants: [
-        {
-            name: { type: String }, // e.g., "50ml", "100ml"
-            price: { type: Number },
-            stock: { type: Number },
-            sku: { type: String },
-            images: [{ type: String }],
-        },
-    ],
     ingredients: [{ type: String }], // optional, array of ingredient names
     usage: [
         {
