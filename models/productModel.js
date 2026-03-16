@@ -18,7 +18,7 @@ const ProductSchema = new mongoose.Schema({
         maxlength: 180
     },
     category: { type: String, required: true }, // e.g., 'Serum', 'Cleanser'
-    tags: [{ type: String }], // optional, e.g., ["Vitamin C", "Brightening"]
+    skinType: [{ type: String }],
     images: [{
         url: {
             type: String,
@@ -32,7 +32,7 @@ const ProductSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     oldPrice: { type: Number }, // for discounts
     stock: { type: Number, default: 0 }, // inventory count
-    sku: { type: String}, // Stock Keeping Unit
+    sku: { type: String }, // Stock Keeping Unit
     rating: { type: Number, default: 0 },
     numReviews: { type: Number, default: 0 },
     reviews: [ReviewSchema],
