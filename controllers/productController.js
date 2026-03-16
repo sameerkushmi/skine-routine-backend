@@ -108,13 +108,32 @@ exports.getProducts = async (req, res) => {
     }
 };
 
+// GET ALL PRODUCT SLUGS
+exports.getProductSlugs = async (req, res) => {
+    try {
+
+        const products = await Product.find(
+            { isActive: true },
+            { slug: 1, _id: 0 }
+        )
+
+        res.status(200).json({
+            success: true,
+            products
+        })
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message })
+    }
+}
+
 // GET SINGLE BY SLUG PRODUCT
 exports.getBySlugProduct = async (req, res) => {
     try {
 
         const product = await Product.findOne({
             slug: req.params.slug
-        }).populate("reviews.user", "name");
+        })
 
         if (!product) {
             return res.status(404).json({
@@ -248,44 +267,18 @@ exports.deleteProduct = async (req, res) => {
     }
 };
 
-// ADD REVIEW
-exports.addReview = async (req, res) => {
+// GET FEATURED PRODUCTS
+exports.getFeaturedProducts = async (req, res) => {
     try {
 
-        const { rating, comment } = req.body;
-
-        const product = await Product.findById(req.params.id);
-
-        const review = {
-            user: req.user._id,
-            rating: Number(rating),
-            comment
-        };
-
-        const isReviewed = product.reviews.find(
-            r => r.user.toString() === req.user._id.toString()
-        );
-
-        if (isReviewed) {
-            isReviewed.rating = rating;
-            isReviewed.comment = comment;
-        } else {
-            product.reviews.push(review);
-        }
-
-        product.numReviews = product.reviews.length;
-
-        product.rating =
-            product.reviews.reduce((acc, item) => acc + item.rating, 0) /
-            product.reviews.length;
-
-        await product.save({ validateBeforeSave: false });
+        const products = await Product.find({ featured: true, isActive: true }).limit(8);
 
         res.status(200).json({
-            success: true
+            success: true,
+            products
         });
 
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-};
+}
