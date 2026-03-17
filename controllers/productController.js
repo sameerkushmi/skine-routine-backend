@@ -53,6 +53,7 @@ exports.createProduct = async (req, res) => {
         const usage = parseJSONField(req.body.usage);
         const ingredients = parseJSONField(req.body.ingredients);
         const skinType = parseJSONField(req.body.skinType);
+        const concerns = parseJSONField(req.body.concerns);
 
         // Create product
         const product = await Product.create({
@@ -63,6 +64,7 @@ exports.createProduct = async (req, res) => {
             shortDescription,
             category,
             skinType,
+            concerns,
             price: Number(price),
             oldPrice: Number(oldPrice),
             stock: Number(stock),
@@ -232,6 +234,7 @@ exports.updateProduct = async (req, res) => {
         product.usage = parseJSONField(req.body.usage, product.usage);
         product.ingredients = parseJSONField(req.body.ingredients, product.ingredients);
         product.skinType = parseJSONField(req.body.skinType, product.skinType);
+        product.concerns = parseJSONField(req.body.concerns, product.concerns);
 
         await product.save();
 

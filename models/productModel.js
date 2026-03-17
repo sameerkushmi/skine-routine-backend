@@ -19,6 +19,7 @@ const ProductSchema = new mongoose.Schema({
     },
     category: { type: String, required: true }, // e.g., 'Serum', 'Cleanser'
     skinType: [{ type: String }],
+    concerns: [{ type: String }], // e.g., ['Acne', 'Anti-aging', 'Pigmentation']
     images: [{
         url: {
             type: String,
