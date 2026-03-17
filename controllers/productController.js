@@ -86,23 +86,27 @@ exports.createProduct = async (req, res) => {
 exports.getProducts = async (req, res) => {
     try {
 
-        const page = Number(req.query.page) || 1;
-        const limit = 10;
+        let { page = 1, limit = 5, search = "" } = req.query;
+        page = parseInt(page);
+        limit = parseInt(limit);
 
-        const products = await Product.find({ isActive: true })
+        // Build search query
+        const query = search
+            ? { name: { $regex: search, $options: "i" } } // case-insensitive search
+            : {};
+
+        const total = await Product.countDocuments(query);
+        const products = await Product.find(query)
+            .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
-            .limit(limit)
-            .sort({ createdAt: -1 });
-
-        const total = await Product.countDocuments();
+            .limit(limit);
 
         res.status(200).json({
-            success: true,
+            products,
             total,
             page,
-            products
+            totalPages: Math.ceil(total / limit),
         });
-
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
