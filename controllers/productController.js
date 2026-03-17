@@ -87,30 +87,97 @@ exports.createProduct = async (req, res) => {
 // GET ALL PRODUCTS
 exports.getProducts = async (req, res) => {
     try {
+        const {
+            page = 1,
+            limit = 10,
+            search,
+            sort,
+            category,
+            skinType,
+            concerns,
+            ingredients,
+            minPrice,
+            maxPrice,
+            rating,
+        } = req.query;
 
-        let { page = 1, limit = 5, search = "" } = req.query;
-        page = parseInt(page);
-        limit = parseInt(limit);
+        const parseArray = (value) => {
+            if (!value) return [];
+            return value.split(",").map((v) => v.trim());
+        };
+        const buildInsensitiveQuery = (field, values) => {
+            return {
+                $or: values.map((val) => ({
+                    [field]: { $regex: `^${val}$`, $options: "i" }
+                }))
+            };
+        };
 
-        // Build search query
-        const query = search
-            ? { name: { $regex: search, $options: "i" } } // case-insensitive search
-            : {};
+        const toRegexArray = (arr) => arr.map((v) => new RegExp(`^${v}$`, "i"));
+
+        let query = {};
+
+        if (search) {
+            query.name = { $regex: search, $options: "i" };
+        }
+
+        const categories = parseArray(category);
+        if (categories.length) {
+            Object.assign(query, buildInsensitiveQuery("category", categories));
+        }
+
+        const skinTypes = parseArray(skinType);
+        if (skinTypes.length) {
+            query.skinType = {
+                $elemMatch: {
+                    $in: skinTypes.map((val) => new RegExp(`^${val}$`, "i"))
+                }
+            };
+        }
+
+        const concern = parseArray(concerns);
+        if (concern.length) {
+            query.concerns = {
+                $elemMatch: {
+                    $in: concerns.map((val) => new RegExp(`^${val}$`, "i"))
+                }
+            };
+        }
+
+        if (parseArray(ingredients).length) {
+            query.ingredients = { $in: toRegexArray(parseArray(ingredients)) };
+        }
+
+        if (minPrice || maxPrice) {
+            query.price = {
+                ...(minPrice && { $gte: Number(minPrice) }),
+                ...(maxPrice && { $lte: Number(maxPrice) }),
+            };
+        }
+
+        if (rating) {
+            query.rating = { $gte: Number(rating) };
+        }
+
+        let sortOption = {};
+        if (sort === "low") sortOption.price = 1;
+        if (sort === "high") sortOption.price = -1;
+        if (sort === "new") sortOption.createdAt = -1;
+
+        const products = await Product.find(query)
+            .sort(sortOption)
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
 
         const total = await Product.countDocuments(query);
-        const products = await Product.find(query)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit);
 
-        res.status(200).json({
+        res.json({
             products,
-            total,
-            page,
             totalPages: Math.ceil(total / limit),
         });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ message: error.message });
     }
 };
 
