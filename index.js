@@ -23,7 +23,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // ================== Routes ==================
 app.use('/api/auth', require('./routes/authRoutes'))
-app.use('/api/user', require('./routes/userRoutes'))
+app.use('/api/users', require('./routes/userRoutes'))
 app.use('/api/products', require('./routes/productRoutes'))
 
 const PORT = process.env.PORT || 5000
