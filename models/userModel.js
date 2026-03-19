@@ -42,7 +42,14 @@ const userSchema = new mongoose.Schema(
 
     phone: String,
 
-    avatar: String,
+    avatar: {
+      url: {
+        type: String,
+      },
+      public_id: {
+        type: String,
+      }
+    },
 
     role: {
       type: String,

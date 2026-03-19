@@ -1,4 +1,49 @@
+const cloudinary = require('../config/cloudinary')
 const UserModel = require('../models/userModel')
+
+exports.createUser = async (req, res) => {
+    try {
+        const { name, email, password, phone, role } = req.body;
+
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, message: "Name, email and password are required" });
+        }
+
+        // Check if user already exists
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: "User with this email already exists" });
+        }
+
+        // Handle avatar file if sent
+        let avatarUrl = null;
+        if (req.file) {
+            avatarUrl = {
+                url: req.file.path,
+                public_id: req.file.filename,
+            }
+        }
+
+        // Create user
+        const user = await UserModel.create({
+            name,
+            email,
+            password, // will be hashed automatically by pre-save hook
+            phone,
+            role: role || "user",
+            avatar: avatarUrl,
+        });
+
+        // Do NOT send password back
+        const userObj = user.toObject();
+        delete userObj.password;
+
+        res.status(201).json({ success: true, user: userObj });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
 
 exports.getCurrentUser = async (req, res) => {
     try {
@@ -89,6 +134,18 @@ exports.updateUser = async (req, res) => {
             }
         }
 
+        // handle image
+        if (req.file) {
+            if (user.avatar?.public_id) {
+                await cloudinary.uploader.destroy(user.avatar.public_id);
+            }
+
+            user.avatar = {
+                url: req.file.path,
+                public_id: req.file.filename
+            };
+        }
+
         // Update fields
         user.name = name || user.name;
         user.email = email || user.email;
@@ -105,7 +162,9 @@ exports.updateUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                avatar: user.avatar,
+                isEmailVerified: user.isEmailVerified
             }
         });
 

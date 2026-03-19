@@ -174,6 +174,7 @@ exports.getProducts = async (req, res) => {
         res.json({
             products,
             totalPages: Math.ceil(total / limit),
+            total
         });
 
     } catch (error) {
@@ -356,3 +357,28 @@ exports.getFeaturedProducts = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+
+exports.getTotalStock = async (req, res) => {
+    try {
+        const result = await Product.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalStock: { $sum: "$stock" }
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            totalStock: result[0]?.totalStock || 0
+        });
+
+    } catch (error) {
+        console.log("get total stock error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
