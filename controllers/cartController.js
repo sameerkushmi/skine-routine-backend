@@ -3,7 +3,7 @@ const Product = require("../models/productModel.js")
 
 exports.addToCart = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.userId;
         const { productId, quantity } = req.body;
 
         const product = await Product.findById(productId);
@@ -46,7 +46,7 @@ exports.addToCart = async (req, res) => {
 
 exports.getCart = async (req, res) => {
     try {
-        const cart = await Cart.findOne({ user: req.user._id })
+        const cart = await Cart.findOne({ user: req.userId })
             .populate("items.product");
 
         res.json({
@@ -64,7 +64,7 @@ exports.updateCartItem = async (req, res) => {
     try {
         const { productId, quantity } = req.body;
 
-        let cart = await Cart.findOne({ user: req.user._id });
+        let cart = await Cart.findOne({ user: req.userId });
 
         if (!cart) {
             return res.status(404).json({ message: "Cart not found" });
@@ -98,7 +98,7 @@ exports.removeCartItem = async (req, res) => {
     try {
         const { productId } = req.params;
 
-        let cart = await Cart.findOne({ user: req.user._id });
+        let cart = await Cart.findOne({ user: req.userId });
 
         if (!cart) {
             return res.status(404).json({ message: "Cart not found" });
@@ -125,7 +125,7 @@ exports.removeCartItem = async (req, res) => {
 exports.clearCart = async (req, res) => {
     try {
         await Cart.findOneAndUpdate(
-            { user: req.user._id },
+            { user: req.userId },
             { items: [] }
         );
 
