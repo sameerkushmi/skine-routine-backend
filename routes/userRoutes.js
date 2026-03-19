@@ -7,12 +7,12 @@ const upload = require('../middlewares/upload')
 const router = express.Router()
 
 router.get('/get-me', protect, getCurrentUser)
+router.put('/update/:id',upload.single('avatar'), updateUser)
 
 router.use(protect, adminProtect);
 
 router.post('/create', upload.single('avatar'), createUser)
 router.get('/get-all', getAllUsers)
-router.put('/update/:id',upload.single('avatar'), updateUser)
 router.delete('/delete/:id', deleteUser)
 
 module.exports = router
