@@ -1,9 +1,8 @@
-// controllers/wishlistController.js
-import Wishlist from "../models/WishlistModel.js";
+const Wishlist = require('../models/wishlistModel')
 
-export const addToWishlist = async (req, res) => {
+exports.addToWishlist = async (req, res) => {
     try {
-        const userId = req.user._id; // from auth middleware
+        const userId = req.userId; // from auth middleware
         const { productId } = req.body;
 
         let wishlist = await Wishlist.findOne({ user: userId });
@@ -38,9 +37,9 @@ export const addToWishlist = async (req, res) => {
     }
 };
 
-export const getWishlist = async (req, res) => {
+exports.getWishlist = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.userId;
 
         const wishlist = await Wishlist.findOne({ user: userId })
             .populate("products");
@@ -55,9 +54,9 @@ export const getWishlist = async (req, res) => {
     }
 };
 
-export const removeFromWishlist = async (req, res) => {
+exports.removeFromWishlist = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.userId;
         const { productId } = req.params;
 
         const wishlist = await Wishlist.findOne({ user: userId });
@@ -86,9 +85,9 @@ export const removeFromWishlist = async (req, res) => {
     }
 };
 
-export const clearWishlist = async (req, res) => {
+exports.clearWishlist = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.userId;
 
         await Wishlist.findOneAndUpdate(
             { user: userId },
