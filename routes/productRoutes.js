@@ -10,7 +10,8 @@ const {
     getByIdProduct,
     getFeaturedProducts,
     getProductSlugs,
-    getTotalStock
+    getTotalStock,
+    getRelatedProducts
 } = require("../controllers/productController");
 const upload = require("../middlewares/upload");
 const protect = require('../middlewares/protect')
@@ -26,6 +27,8 @@ router.get("/slug", getProductSlugs);
 router.get('/get-featured', getFeaturedProducts)
 
 router.get('/get-stock', getTotalStock)
+
+router.get("/:productId/related", getRelatedProducts);
 
 // admin routes
 router.use(protect, adminProtect);

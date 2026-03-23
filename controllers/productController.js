@@ -382,3 +382,30 @@ exports.getTotalStock = async (req, res) => {
         });
     }
 };
+
+exports.getRelatedProducts = async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        // 1. Find the current product
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        // 2. Find related products by category (excluding current product)
+        const relatedProducts = await Product.find({
+            _id: { $ne: product._id }, // exclude current product
+            category: product.category, // same category
+        })
+            .limit(8) // limit to 8 related products
+            .select("name price slug images category"); // return only needed fields
+
+        res.status(200).json({
+            related: relatedProducts,
+        });
+    } catch (error) {
+        console.error("Get related products error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
