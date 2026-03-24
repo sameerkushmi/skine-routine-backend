@@ -12,10 +12,11 @@ const adminProtect = require('../middlewares/adminProtect')
 // Public route: subscribe
 router.post("/", addSubscriber);
 
+router.use(protect, adminProtect)
 // Private/Admin: get all subscribers
-router.get("/", protect, adminProtect, getSubscribers);
+router.get("/", getSubscribers);
 
 // Private/Admin: delete subscriber
-router.delete("/:id", protect, adminProtect, deleteSubscriber);
+router.delete("/:id", deleteSubscriber);
 
 module.exports = router;
