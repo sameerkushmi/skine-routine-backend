@@ -6,9 +6,11 @@ const protect = require('../middlewares/protect')
 
 const router = express.Router();
 
-router.post("/add", protect, addToWishlist);
-router.get("/", protect, getWishlist);
-router.delete("/:productId", protect, removeFromWishlist);
-router.delete("/clear/all", protect, clearWishlist);
+router.use(protect);
+
+router.post("/add", addToWishlist);
+router.get("/", getWishlist);
+router.delete("/:productId", removeFromWishlist);
+router.delete("/clear/all", clearWishlist);
 
 module.exports = router;

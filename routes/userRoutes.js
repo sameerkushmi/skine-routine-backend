@@ -8,7 +8,8 @@ const {
     addAddress,
     getAddresses,
     updatedAddress,
-    deleteAddress
+    deleteAddress,
+    changePassword
 } = require('../controllers/userController')
 const protect = require('../middlewares/protect')
 const adminProtect = require('../middlewares/adminProtect')
@@ -16,12 +17,18 @@ const upload = require('../middlewares/upload')
 
 const router = express.Router()
 
+// get current logged in user
 router.get('/get-me', protect, getCurrentUser)
+// update logged in user profile
 router.put('/update/:id', protect, upload.single('avatar'), updateUser)
+
+// addresses routes
 router.post('/add/address', protect, addAddress)
 router.get('/get-all/addresses', protect, getAddresses)
 router.put('/update/address/:index', protect, updatedAddress)
 router.delete('/delete/address/:index', protect, deleteAddress)
+
+router.put('/change/password', protect, changePassword)
 
 router.use(protect, adminProtect);
 
