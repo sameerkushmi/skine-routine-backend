@@ -211,3 +211,72 @@ exports.deleteUser = async (req, res) => {
         });
     }
 };
+
+
+// addresses controller
+exports.getAddresses = async (req, res) => {
+    try {
+        const user = await UserModel.findById(req.userId).select("addresses");
+        res.status(200).json(user?.addresses || []);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+exports.addAddress = async (req, res) => {
+    try {
+        const user = await UserModel.findById(req.userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const newAddress = req.body;
+
+        // If new address is default, unset others
+        if (newAddress.isDefault) {
+            user.addresses.forEach((a) => (a.isDefault = false));
+        }
+
+        user.addresses.push(newAddress);
+        await user.save();
+        res.status(201).json(user.addresses);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+exports.updatedAddress = async (req, res) => {
+    try {
+        const user = await UserModel.findById(req.userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const index = parseInt(req.params.index, 10);
+        const updatedAddress = req.body;
+
+        if (updatedAddress.isDefault) {
+            user.addresses.forEach((a, i) => (i === index ? (a.isDefault = true) : (a.isDefault = false)));
+        }
+
+        user.addresses[index] = updatedAddress;
+        await user.save();
+        res.status(200).json(user.addresses);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+exports.deleteAddress = async (req, res) => {
+    try {
+        const user = await UserModel.findById(req.userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const index = parseInt(req.params.index, 10);
+        user.addresses.splice(index, 1);
+        await user.save();
+        res.status(200).json(user.addresses);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+}
