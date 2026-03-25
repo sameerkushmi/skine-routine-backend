@@ -29,6 +29,7 @@ app.use('/api/carts', require('./routes/cartRoutes'))
 app.use('/api/wishlists', require('./routes/wishlistRoutes'))
 app.use('/api/subscribers', require('./routes/subscriberRoutes'))
 app.use('/api/reviews', require('./routes/reviewRoutes'))
+app.use('/api/blogs', require('./routes/blogRoutes'))
 
 const PORT = process.env.PORT || 5000
 
