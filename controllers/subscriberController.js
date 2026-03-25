@@ -44,10 +44,38 @@ exports.addSubscriber = async (req, res) => {
 // @access  Private/Admin
 exports.getSubscribers = async (req, res) => {
     try {
-        const subscribers = await Subscriber.find().sort({ createdAt: -1 });
+        // 🔹 Query params
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+
+        const skip = (page - 1) * limit;
+
+        // 🔍 Search filter
+        const filter = search
+            ? {
+                email: { $regex: search, $options: "i" }, // case-insensitive
+            }
+            : {};
+
+        // 📊 Total count
+        const total = await Subscriber.countDocuments(filter);
+
+        // 📄 Data query
+        const subscribers = await Subscriber.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
         res.status(200).json({
             success: true,
             subscribers,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
         });
     } catch (err) {
         console.error("Get Subscribers Error:", err);
