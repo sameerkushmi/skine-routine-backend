@@ -1,20 +1,10 @@
 const ReviewModel = require('../models/reviewModel')
 
-exports.createAndUpdate = async (req, res) => {
+exports.createReview = async (req, res) => {
     try {
         const { rating, comment } = req.body;
         const { productId } = req.params;
         const userId = req.userId;
-
-        let review = await ReviewModel.findOne({ user: userId, product: productId });
-
-        if (review) {
-            // Update existing review
-            review.rating = rating;
-            review.comment = comment;
-            await review.save();
-            return res.status(200).json({ message: "Review updated", review });
-        }
 
         // Create new review
         review = await ReviewModel.create({
@@ -27,7 +17,7 @@ exports.createAndUpdate = async (req, res) => {
         res.status(201).json({ message: "Review created", review });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: err.message });
     }
 }
 
@@ -46,6 +36,24 @@ exports.getReviewsByProduct = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error" });
+    }
+}
+
+exports.updateReview = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { reviewId } = req.params;
+        const { rating, comment } = req.body;
+        const review = await ReviewModel.findOneAndUpdate(
+            { _id: reviewId, user: userId },
+            { rating, comment },
+            { new: true }
+        );
+
+        res.json({ message: "Review updated", review });
+    } catch (error) {
+        console.log('update review error :', error)
+        res.status(500).json({ message: error.message });
     }
 }
 

@@ -28,8 +28,6 @@ const ProductSchema = new mongoose.Schema({
     oldPrice: { type: Number }, // for discounts
     stock: { type: Number, default: 0 }, // inventory count
     sku: { type: String }, // Stock Keeping Unit
-    rating: { type: Number, default: 0 },
-    numReviews: { type: Number, default: 0 },
     featured: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     ingredients: [{ type: String }], // optional, array of ingredient names
