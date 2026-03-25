@@ -18,13 +18,13 @@ const CommentSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true },
     message: { type: String, required: true },
-    date: { type: String, required: true },
+}, {
+    timestamps: true
 });
 
 const BlogSchema = new mongoose.Schema({
     title: { type: String, required: true },
     excerpt: { type: String },
-    date: { type: String, required: true },
     heroImage: {
         url: {
             type: String,
@@ -41,6 +41,6 @@ const BlogSchema = new mongoose.Schema({
         conclusion: { type: String },
     },
     comments: [CommentSchema],
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("Blog", BlogSchema);

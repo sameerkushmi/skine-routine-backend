@@ -4,23 +4,27 @@ const cloudinary = require("../config/cloudinary");
 // ----------------- CREATE BLOG WITH SECTION IMAGES -----------------
 const createBlog = async (req, res) => {
     try {
-        const { title, excerpt, date, article } = req.body;
+        const { title, excerpt } = req.body;
 
-        if (!req.file) {
+        // ✅ parse JSON string
+        const article = JSON.parse(req.body.article);
+
+        const heroFile = req.files?.heroImage?.[0];
+
+        if (!heroFile) {
             return res.status(400).json({ message: "Hero image is required" });
         }
 
-        // Hero Image
         const heroImage = {
-            url: req.file.path,
-            public_id: req.file.filename,
+            url: heroFile.path,
+            public_id: heroFile.filename,
         };
 
-        // Section Images
-        // req.files will contain uploaded section images
         let sections = [];
+
         if (article?.sections && article.sections.length > 0) {
-            const sectionImages = req.files || [];
+            const sectionImages = req.files?.sectionImages || [];
+
             sections = article.sections.map((sec, index) => ({
                 heading: sec.heading,
                 content: sec.content || [],
@@ -37,7 +41,6 @@ const createBlog = async (req, res) => {
         const blog = new Blog({
             title,
             excerpt,
-            date,
             heroImage,
             article: {
                 intro: article?.intro,
@@ -47,7 +50,12 @@ const createBlog = async (req, res) => {
         });
 
         await blog.save();
-        res.status(201).json({ message: "Blog created successfully", blog });
+
+        res.status(201).json({
+            success: true,
+            blog,
+        });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Server error", error });
@@ -57,7 +65,7 @@ const createBlog = async (req, res) => {
 // ----------------- UPDATE BLOG WITH SECTION IMAGES -----------------
 const updateBlog = async (req, res) => {
     try {
-        const { title, excerpt, date, article } = req.body;
+        const { title, excerpt, article } = req.body;
         const blog = await Blog.findById(req.params.id);
         if (!blog) return res.status(404).json({ message: "Blog not found" });
 
@@ -95,7 +103,6 @@ const updateBlog = async (req, res) => {
 
         blog.title = title || blog.title;
         blog.excerpt = excerpt || blog.excerpt;
-        blog.date = date || blog.date;
         blog.article.intro = article?.intro || blog.article.intro;
         blog.article.conclusion = article?.conclusion || blog.article.conclusion;
 
@@ -123,7 +130,7 @@ const deleteBlog = async (req, res) => {
             }
         });
 
-        await blog.remove();
+        await blog.deleteOne()
         res.status(200).json({ message: "Blog deleted successfully" });
     } catch (error) {
         console.error(error);
@@ -153,11 +160,11 @@ const getBlogById = async (req, res) => {
 
 const addComment = async (req, res) => {
     try {
-        const { name, email, message, date } = req.body;
+        const { name, email, message } = req.body;
         const blog = await Blog.findById(req.params.id);
         if (!blog) return res.status(404).json({ message: "Blog not found" });
 
-        blog.comments.push({ name, email, message, date });
+        blog.comments.push({ name, email, message });
         await blog.save();
         res.status(201).json({ message: "Comment added successfully", blog });
     } catch (error) {
