@@ -111,7 +111,7 @@ exports.getAllUsers = async (req, res) => {
 // UPDATE USER
 exports.updateUser = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.userId;
         const { name, email, phone, role } = req.body;
 
         // Find user
@@ -359,7 +359,7 @@ exports.changePassword = async (req, res) => {
         console.error("Change Password Error:", error);
         res.status(500).json({
             success: false,
-            message: "Server error",
+            message: error.message,
         });
     }
 };

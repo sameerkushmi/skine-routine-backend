@@ -20,7 +20,7 @@ const router = express.Router()
 // get current logged in user
 router.get('/get-me', protect, getCurrentUser)
 // update logged in user profile
-router.put('/update/:id', protect, upload.single('avatar'), updateUser)
+router.put('/update', protect, upload.single('avatar'), updateUser)
 
 // addresses routes
 router.post('/add/address', protect, addAddress)
