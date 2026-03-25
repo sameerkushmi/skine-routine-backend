@@ -1,12 +1,6 @@
 // Product Schema (Mongoose)
 const mongoose = require('mongoose');
 
-const ReviewSchema = new mongoose.Schema({
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    rating: { type: Number, required: true, min: 1, max: 5 },
-    comment: { type: String },
-}, { timestamps: true });
-
 const ProductSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     brand: { type: String, required: true, trim: true },
@@ -36,7 +30,6 @@ const ProductSchema = new mongoose.Schema({
     sku: { type: String }, // Stock Keeping Unit
     rating: { type: Number, default: 0 },
     numReviews: { type: Number, default: 0 },
-    reviews: [ReviewSchema],
     featured: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     ingredients: [{ type: String }], // optional, array of ingredient names
