@@ -158,16 +158,46 @@ const getBlogById = async (req, res) => {
     }
 };
 
-const addComment = async (req, res) => {
+// ----------------- GET RELATED BLOGS -----------------
+const getRelatedBlogs = async (req, res) => {
     try {
-        const { name, email, message } = req.body;
-        const blog = await Blog.findById(req.params.id);
-        if (!blog) return res.status(404).json({ message: "Blog not found" });
+        const { id } = req.params;
 
-        blog.comments.push({ name, email, message });
-        await blog.save();
-        res.status(201).json({ message: "Comment added successfully", blog });
+        const currentBlog = await Blog.findById(id);
+        if (!currentBlog) {
+            return res.status(404).json({ message: "Blog not found" });
+        }
+
+        const keywords = currentBlog.title.split(" ");
+
+        let relatedBlogs = await Blog.find({
+            _id: { $ne: id },
+            title: {
+                $regex: keywords.join("|"),
+                $options: "i",
+            },
+        })
+            .limit(4)
+            .select("title excerpt heroImage date");
+
+        // 🔥 Fallback (latest blogs)
+        if (relatedBlogs.length === 0) {
+            relatedBlogs = await Blog.find({
+                _id: { $ne: id },
+            })
+                .sort({ createdAt: -1 })
+                .limit(4)
+                .select("title excerpt heroImage date");
+        }
+
+        console.log(relatedBlogs)
+
+        res.status(200).json({
+            success: true,
+            relatedBlogs,
+        });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: "Server error", error });
     }
 };
@@ -179,4 +209,5 @@ module.exports = {
     getAllBlogs,
     getBlogById,
     addComment,
+    getRelatedBlogs
 };

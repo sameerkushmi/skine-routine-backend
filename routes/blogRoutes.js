@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getAllBlogs, getBlogById, addComment, createBlog, updateBlog, deleteBlog } = require("../controllers/blogController");
+const { getAllBlogs, getBlogById, addComment, createBlog, updateBlog, deleteBlog, getRelatedBlogs } = require("../controllers/blogController");
 const upload = require("../middlewares/upload");
 
 const protect = require("../middlewares/protect");
@@ -9,7 +9,7 @@ const adminProtect = require("../middlewares/adminProtect");
 // Other routes
 router.get("/", getAllBlogs);
 router.get("/:id", getBlogById);
-router.post("/:id/comments", addComment);
+router.get('/related/:id', getRelatedBlogs)
 
 // Admin routes
 router.use(protect, adminProtect)
