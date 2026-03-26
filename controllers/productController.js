@@ -105,11 +105,12 @@ exports.getProducts = async (req, res) => {
             if (!value) return [];
             return value.split(",").map((v) => v.trim());
         };
+
         const buildInsensitiveQuery = (field, values) => {
             return {
                 $or: values.map((val) => ({
-                    [field]: { $regex: `^${val}$`, $options: "i" }
-                }))
+                    [field]: { $regex: `^${val}$`, $options: "i" },
+                })),
             };
         };
 
@@ -117,37 +118,43 @@ exports.getProducts = async (req, res) => {
 
         let query = {};
 
+        // SEARCH
         if (search) {
             query.name = { $regex: search, $options: "i" };
         }
 
+        // CATEGORY
         const categories = parseArray(category);
         if (categories.length) {
             Object.assign(query, buildInsensitiveQuery("category", categories));
         }
 
+        // SKIN TYPE
         const skinTypes = parseArray(skinType);
         if (skinTypes.length) {
             query.skinType = {
                 $elemMatch: {
-                    $in: skinTypes.map((val) => new RegExp(`^${val}$`, "i"))
-                }
+                    $in: skinTypes.map((val) => new RegExp(`^${val}$`, "i")),
+                },
             };
         }
 
+        // CONCERNS
         const concern = parseArray(concerns);
         if (concern.length) {
             query.concerns = {
                 $elemMatch: {
-                    $in: concerns.map((val) => new RegExp(`^${val}$`, "i"))
-                }
+                    $in: concern.map((val) => new RegExp(`^${val}$`, "i")),
+                },
             };
         }
 
+        // INGREDIENTS
         if (parseArray(ingredients).length) {
             query.ingredients = { $in: toRegexArray(parseArray(ingredients)) };
         }
 
+        // PRICE FILTER
         if (minPrice || maxPrice) {
             query.price = {
                 ...(minPrice && { $gte: Number(minPrice) }),
@@ -155,10 +162,19 @@ exports.getProducts = async (req, res) => {
             };
         }
 
+        // RATING FILTER
         if (rating) {
             query.rating = { $gte: Number(rating) };
         }
 
+        // NEW ARRIVALS: last 7 days
+        if (sort === "new") {
+            const dateLimit = new Date();
+            dateLimit.setDate(dateLimit.getDate() - 7); // last 7 days
+            query.createdAt = { $gte: dateLimit };
+        }
+
+        // SORT OPTIONS
         let sortOption = {};
         if (sort === "low") sortOption.price = 1;
         if (sort === "high") sortOption.price = -1;
@@ -174,9 +190,8 @@ exports.getProducts = async (req, res) => {
         res.json({
             products,
             totalPages: Math.ceil(total / limit),
-            total
+            total,
         });
-
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -346,7 +361,7 @@ exports.deleteProduct = async (req, res) => {
 exports.getFeaturedProducts = async (req, res) => {
     try {
 
-        const products = await Product.find({ featured: true, isActive: true }).limit(8);
+        const products = await Product.find({ featured: true, isActive: true }).limit(8).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
