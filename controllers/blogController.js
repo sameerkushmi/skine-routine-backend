@@ -208,6 +208,5 @@ module.exports = {
     deleteBlog,
     getAllBlogs,
     getBlogById,
-    addComment,
     getRelatedBlogs
 };
