@@ -26,7 +26,7 @@ exports.createCODOrder = async (req, res) => {
         );
         const shipping = 100; // fixed shipping
         const totalAmount = subtotal + shipping;
-        
+
         await Order.create({
             user: userId,
             products: cartItems.map((item) => ({
@@ -58,6 +58,60 @@ exports.createCODOrder = async (req, res) => {
             success: false,
             message: error.message,
         });
+    }
+};
+
+// GET ALL ORDERS 
+
+exports.getAllOrders = async (req, res) => {
+    try {
+        const orders = await Order.find()
+            .populate("user", "name email")
+            .populate("products.product")
+            .sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            orders,
+        });
+    } catch (error) {
+        console.log('get all orders error', error)
+        res.status(500).json({ message: "Server error" });
+    }
+}
+
+// GET MY ORDERS
+exports.getOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ user: req.userId })
+            .populate("products.product")
+            .sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            orders,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// GET SINGLE ORDER
+exports.getSingleOrder = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id)
+            .populate("products.product");
+
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        res.json({
+            success: true,
+            order,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server error" });
     }
 };
 
