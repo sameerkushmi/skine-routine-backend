@@ -271,8 +271,6 @@ exports.verifyEsewaPayment = async (req, res) => {
             `${process.env.ESEWA_PAYMENT_VERIFY_URL}?product_code=${product_code}&total_amount=${total_amount}&transaction_uuid=${transaction_uuid}`
         );
 
-        console.log("eSewa verify response:", response.data);
-
         if (response.data.status === "COMPLETE") {
             order.paymentStatus = "completed";
             order.orderStatus = "processing";
