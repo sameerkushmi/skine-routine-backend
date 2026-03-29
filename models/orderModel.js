@@ -52,6 +52,13 @@ const OrderSchema = new mongoose.Schema(
             enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
             default: "pending",
         },
+        isPaid: {
+            type: Boolean,
+            default: false,
+        },
+        paidAt: {
+            type: Date,
+        },
         transactionId: {
             type: String, // store esewa/khalti transaction ID, empty for COD
         },

@@ -1,5 +1,5 @@
 const express = require('express')
-const { createEsewaOrder, createCODOrder, getOrders, getAllOrders, getSingleOrder } = require('../controllers/orderController')
+const { createEsewaOrder, createCODOrder, getOrders, getAllOrders, getSingleOrder, verifyEsewaPayment,  } = require('../controllers/orderController')
 
 const router = express.Router()
 
@@ -12,5 +12,6 @@ router.get('/my', getOrders)
 router.get('/single/:id', getSingleOrder)
 router.post('/cod', createCODOrder)
 router.post('/esewa', createEsewaOrder)
+router.post('/esewa/verify', verifyEsewaPayment)
 
 module.exports = router

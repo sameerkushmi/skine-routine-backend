@@ -2,9 +2,16 @@ const Order = require("../models/orderModel"); // your order model
 const User = require("../models/userModel"); // your user model
 const axios = require('axios')
 const Product = require('../models/productModel')
+const crypto = require('crypto')
 
 const SUCCESS_URL = process.env.CLIENT_URL + process.env.SUCCESS_URL
 const FAILED_URL = process.env.CLIENT_URL + process.env.FAILURE_URL
+const {
+    ESEWA_MERCHANT_CODE,
+    ESEWA_SECRET_KEY,
+    ESEWA_PAYMENT_URL,
+    ESEWA_PAYMENT_VERIFY_URL
+} = process.env
 
 // CREATE COD ORDER
 exports.createCODOrder = async (req, res) => {
@@ -118,104 +125,191 @@ exports.getSingleOrder = async (req, res) => {
 // POST /api/orders/esewa
 exports.createEsewaOrder = async (req, res) => {
     try {
-        const userId = req.userId
-        const { paymentMethod, cartItems, address } = req.body;
+        const userId = req.userId;
+        const { cartItems, address } = req.body;
 
-        if (!cartItems || !cartItems.length) {
+        // 1. Validate input
+        if (!cartItems || cartItems.length === 0) {
             return res.status(400).json({ message: "Cart is empty" });
         }
 
-        // Fetch user
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: "User not found" });
+        if (!address || !address.street || !address.city || !address.phone) {
+            return res.status(400).json({ message: "Invalid shipping address" });
+        }
 
-        // Calculate totals
-        const subtotal = cartItems.reduce(
-            (acc, item) => acc + item.price * item.quantity,
-            0
+        // 2. Check user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // 3. Validate products & calculate total securely
+        let subtotal = 0;
+
+        const products = await Promise.all(
+            cartItems.map(async (item) => {
+                const product = await Product.findById(item.productId);
+
+                if (!product) {
+                    throw new Error("Product not found");
+                }
+
+                // Stock check
+                if (product.stock < item.quantity) {
+                    throw new Error(`${product.name} is out of stock`);
+                }
+
+                const price = product.price; // TRUST DB ONLY
+                subtotal += price * item.quantity;
+
+                return {
+                    product: product._id,
+                    quantity: item.quantity,
+                    price,
+                };
+            })
         );
-        const shipping = 100; // fixed shipping
+
+        // 4. Pricing
+        const shipping = 100; // you can make dynamic later
         const totalAmount = subtotal + shipping;
 
-        // Create order
+        // 5. Generate transaction ID
+        const transactionId = `TXN-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+
+        // 6. Create order (PENDING)
         const order = await Order.create({
             user: userId,
-            products: cartItems.map((item) => ({
-                product: item.productId,
-                quantity: item.quantity,
-                price: item.price,
-            })),
+            products,
             shippingAddress: {
                 address: address.street,
                 city: address.city,
                 state: address.state,
                 postalCode: address.postalCode,
                 country: address.country,
-                phone: address.phone
+                phone: address.phone,
             },
-            paymentMethod: paymentMethod, // "esewa"
-            paymentStatus: "pending", // will be updated after eSewa callback
+            paymentMethod: "esewa",
+            paymentStatus: "pending",
+            orderStatus: "pending",
+            subtotal,
+            shipping,
             totalAmount,
+            transactionId,
         });
 
-        // Respond with order and total for eSewa
+        // 7. Generate eSewa signature
+        const signedData = `total_amount=${totalAmount},transaction_uuid=${transactionId},product_code=${ESEWA_MERCHANT_CODE}`;
+
+        const signature = crypto
+            .createHmac("sha256", ESEWA_SECRET_KEY)
+            .update(signedData)
+            .digest("base64");
+
+        // 8. Response to frontend
         res.status(201).json({
-            message: "Order created successfully",
+            success: true,
+            message: "Order created. Proceed to payment.",
             orderId: order._id,
-            totalAmount: order.totalAmount,
-            esewaPaymentUrl: `https://esewa.com.np/epay/main?amt=${totalAmount}&pdc=0&txAmt=0&tAmt=${totalAmount}&scd=${process.env.ESEWA_MERCHANT_CODE}&pid=${order._id}&su=${SUCCESS_URL}&fu=${FAILED_URL}`
+
+            payment: {
+                url: ESEWA_PAYMENT_URL,
+                method: "POST",
+
+                params: {
+                    amount: subtotal,
+                    tax_amount: 0,
+                    total_amount: totalAmount,
+                    transaction_uuid: transactionId,
+                    product_code: ESEWA_MERCHANT_CODE,
+
+                    product_service_charge: 0,
+                    product_delivery_charge: shipping,
+
+                    success_url: SUCCESS_URL,
+                    failure_url: FAILED_URL,
+
+                    signed_field_names: "total_amount,transaction_uuid,product_code",
+                    signature,
+                },
+            },
         });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+
+    } catch (error) {
+        console.error("eSewa Order Error:", error.message);
+
+        res.status(500).json({
+            success: false,
+            message: error.message || "Server error",
+        });
     }
 };
 
 // POST /api/orders/esewa/verify
 exports.verifyEsewaPayment = async (req, res) => {
     try {
-        const { orderId, amt, refId, pid } = req.body;
+        const { transaction_uuid, total_amount, product_code } = req.body;
 
-        if (!orderId || !amt || !refId || !pid) {
-            return res.status(400).json({ message: "Missing payment data" });
+        if (!transaction_uuid || !total_amount || !product_code) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid request"
+            });
         }
 
-        // Fetch order
-        const order = await Order.findById(orderId);
-        if (!order) return res.status(404).json({ message: "Order not found" });
+        const order = await Order.findOne({ transactionId: transaction_uuid });
 
-        // Prepare eSewa verification payload
-        const payload = new URLSearchParams({
-            amt: amt.toString(),
-            psc: "0",
-            pdc: "0",
-            tAmt: amt.toString(),
-            pid: pid.toString(),
-            scd: process.env.ESEWA_MERCHANT_CODE, // Your eSewa merchant code
-        }).toString();
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found"
+            });
+        }
 
-        // Verify with eSewa
-        const response = await axios.post(
-            "https://esewa.com.np/epay/transrec",
-            payload,
-            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+        // ✅ GET request (IMPORTANT FIX)
+        const response = await axios.get(
+            `${process.env.ESEWA_PAYMENT_VERIFY_URL}?product_code=${product_code}&total_amount=${total_amount}&transaction_uuid=${transaction_uuid}`
         );
 
-        // eSewa responds with status
-        if (response.data.includes("Success")) {
+        console.log("eSewa verify response:", response.data);
+
+        if (response.data.status === "COMPLETE") {
             order.paymentStatus = "completed";
-            order.transactionId = refId;
+            order.orderStatus = "processing";
+            order.isPaid = true;
+            order.paidAt = new Date();
+
+            // Reduce stock
+            for (const item of order.products) {
+                await Product.findByIdAndUpdate(item.product, {
+                    $inc: { stock: -item.quantity }
+                });
+            }
+
             await order.save();
 
-            return res.status(200).json({ message: "Payment verified successfully", order });
+            return res.status(200).json({
+                success: true,
+                message: "Payment verified successfully",
+                orderId: order._id
+            });
         } else {
             order.paymentStatus = "failed";
+            order.orderStatus = "cancelled";
             await order.save();
 
-            return res.status(400).json({ message: "Payment verification failed" });
+            return res.status(400).json({
+                success: false,
+                message: "Payment not completed"
+            });
         }
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+
+    } catch (error) {
+        console.error("eSewa Verify Error:", error.response?.data || error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: "Verification failed"
+        });
     }
 };
