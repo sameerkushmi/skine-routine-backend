@@ -3,6 +3,7 @@ const User = require("../models/userModel"); // your user model
 const axios = require('axios')
 const Product = require('../models/productModel')
 const crypto = require('crypto')
+const mongoose = require('mongoose')
 
 const SUCCESS_URL = process.env.CLIENT_URL + process.env.SUCCESS_URL
 const FAILED_URL = process.env.CLIENT_URL + process.env.FAILURE_URL
@@ -69,23 +70,64 @@ exports.createCODOrder = async (req, res) => {
 };
 
 // GET ALL ORDERS 
-
 exports.getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find()
+        let {
+            page = 1,
+            limit = 10,
+            search = "",
+            status = "",
+            paymentMethod = "",
+        } = req.query;
+
+        page = parseInt(page);
+        limit = parseInt(limit);
+
+        const query = {};
+
+        // STATUS
+        if (status) query.orderStatus = status;
+
+        // PAYMENT
+        if (paymentMethod) query.paymentMethod = paymentMethod;
+
+        // SEARCH (ADVANCED 🔥)
+        if (search) {
+            const users = await User.find({
+                $or: [
+                    { name: { $regex: search, $options: "i" } },
+                    { email: { $regex: search, $options: "i" } },
+                ],
+            }).select("_id");
+
+            const userIds = users.map((u) => u._id);
+
+            query.$or = [
+                { _id: mongoose.Types.ObjectId.isValid(search) ? search : null },
+                { user: { $in: userIds } },
+            ];
+        }
+
+        const orders = await Order.find(query)
             .populate("user", "name email")
             .populate("products.product")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
 
-        res.json({
-            success: true,
+        const totalOrders = await Order.countDocuments(query);
+
+        res.status(200).json({
             orders,
+            totalPages: Math.ceil(totalOrders / limit),
+            currentPage: page,
+            totalOrders,
         });
     } catch (error) {
-        console.log('get all orders error', error)
-        res.status(500).json({ message: "Server error" });
+        console.error(error);
+        res.status(500).json({ message: "Failed to fetch orders" });
     }
-}
+};
 
 // GET MY ORDERS
 exports.getOrders = async (req, res) => {
@@ -119,6 +161,83 @@ exports.getSingleOrder = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
+    }
+};
+
+// PATCH /api/orders/:id/status
+exports.updateOrderStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+
+        const validStatus = ["pending", "processing", "shipped", "delivered", "cancelled"];
+
+        if (!validStatus.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid status",
+            });
+        }
+
+        const order = await Order.findById(req.params.id);
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found",
+            });
+        }
+
+        order.orderStatus = status;
+
+        // Optional: auto update payment for COD when delivered
+        if (status === "delivered" && order.paymentMethod === "cod") {
+            order.paymentStatus = "completed";
+        }
+
+        await order.save();
+
+        res.json({
+            success: true,
+            message: "Order status updated",
+            order,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+
+exports.getCompletedPaymentTotal = async (req, res) => {
+    try {
+        const result = await Order.aggregate([
+            {
+                $match: {
+                    paymentStatus: "completed", // filter completed payments
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalAmount: { $sum: "$totalAmount" },
+                },
+            },
+        ]);
+
+        const total = result.length > 0 ? result[0].totalAmount : 0;
+
+        res.status(200).json({
+            success: true,
+            totalCompletedAmount: total,
+        });
+    } catch (error) {
+        console.error("Error fetching total completed payments:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error",
+        });
     }
 };
 
@@ -268,7 +387,7 @@ exports.verifyEsewaPayment = async (req, res) => {
 
         // ✅ GET request (IMPORTANT FIX)
         const response = await axios.get(
-            `${process.env.ESEWA_PAYMENT_VERIFY_URL}?product_code=${product_code}&total_amount=${total_amount}&transaction_uuid=${transaction_uuid}`
+            `${ESEWA_PAYMENT_VERIFY_URL}?product_code=${product_code}&total_amount=${total_amount}&transaction_uuid=${transaction_uuid}`
         );
 
         if (response.data.status === "COMPLETE") {
