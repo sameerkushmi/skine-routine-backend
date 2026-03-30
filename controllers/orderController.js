@@ -11,7 +11,10 @@ const {
     ESEWA_MERCHANT_CODE,
     ESEWA_SECRET_KEY,
     ESEWA_PAYMENT_URL,
-    ESEWA_PAYMENT_VERIFY_URL
+    ESEWA_PAYMENT_VERIFY_URL,
+    KHALTI_BASE_URL,
+    KHALTI_SECRET_KEY,
+    CLIENT_URL
 } = process.env
 
 // CREATE COD ORDER
@@ -425,6 +428,166 @@ exports.verifyEsewaPayment = async (req, res) => {
         console.error("eSewa Verify Error:", error.response?.data || error.message);
 
         return res.status(500).json({
+            success: false,
+            message: "Verification failed"
+        });
+    }
+};
+
+// POST /api/orders/khalti/
+exports.createKhaltiOrder = async (req, res) => {
+    try {        // 1️⃣ Validate input
+        const userId = req.userId;
+        const { cartItems, address } = req.body;
+        if (!cartItems || cartItems.length === 0) {
+            return res.status(400).json({ message: "Cart is empty" });
+        }
+        if (!address || !address.street || !address.city || !address.phone) {
+            return res.status(400).json({ message: "Invalid shipping address" });
+        }
+
+        // 2️⃣ Validate user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // 3️⃣ Validate products & calculate total securely
+        let subtotal = 0;
+
+        const products = await Promise.all(
+            cartItems.map(async (item) => {
+                const product = await Product.findById(item.productId);
+
+                if (!product) {
+                    throw new Error("Product not found");
+                }
+
+                // Stock check
+                if (product.stock < item.quantity) {
+                    throw new Error(`${product.name} is out of stock`);
+                }
+
+                const price = product.price; // TRUST DB ONLY
+                subtotal += price * item.quantity;
+
+                return {
+                    product: product._id,
+                    quantity: item.quantity,
+                    price,
+                };
+            })
+        );
+
+        // 4️⃣ Pricing
+        const shipping = 100; // you can make dynamic later
+        const totalAmount = subtotal + shipping;
+
+        // 5️⃣ Create order (PENDING)
+        const order = await Order.create({
+            user: userId,
+            products,
+            shippingAddress: {
+                address: address.street,
+                city: address.city,
+                state: address.state,
+                postalCode: address.postalCode,
+                country: address.country,
+                phone: address.phone,
+            },
+            paymentMethod: "khalti",
+            paymentStatus: "pending",
+            orderStatus: "pending",
+            subtotal,
+            shipping,
+            totalAmount,
+        });
+
+        // Call Khalti initiate API
+        const response = await axios.post(
+            KHALTI_BASE_URL,
+            {
+                return_url: `${CLIENT_URL}/payment-callback`,
+                website_url: CLIENT_URL,
+                amount: totalAmount * 100, // paisa
+                purchase_order_id: order._id.toString(),
+                purchase_order_name: `Order ${order._id}`,
+                customer_info: {
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone
+                }
+            },
+            {
+                headers: {
+                    "Authorization": `Key ${KHALTI_SECRET_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        // Save pidx
+        order.pidx = response.data.pidx;
+        await order.save();
+
+
+        res.status(201).json({
+            success: true,
+            message: "Order created. Proceed to Khalti payment.",
+            orderId: order._id,
+            totalAmount,
+            payment_url: response.data.payment_url
+        });
+
+    } catch (error) {
+        console.error("Khalti Order Error:", error.message);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Server error",
+        });
+    }
+};
+
+// POST /api/orders/khalti/verify
+exports.verifyKhaltiPayment = async (req, res) => {
+    try {
+        const { pidx, orderId } = req.body;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+
+        // 🔥 Call Khalti Lookup API
+        const response = await axios.post(
+            "https://dev.khalti.com/api/v2/epayment/lookup/",
+            { pidx },
+            {
+                headers: {
+                    Authorization: `Key ${KHALTI_SECRET_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        const data = response.data;
+
+        // ✅ Check status
+        if (data.status === "Completed") {
+            order.paymentStatus = "completed";
+            order.orderStatus = "processing";
+            order.transactionId = data.transaction_id;
+
+            await order.save();
+
+            return res.json({ success: true });
+        } else {
+            return res.json({ success: false, status: data.status });
+        }
+
+    } catch (error) {
+        console.error("Khalti Verify Error:", error.response?.data || error.message);
+        res.status(500).json({
             success: false,
             message: "Verification failed"
         });

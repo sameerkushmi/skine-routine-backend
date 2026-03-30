@@ -1,5 +1,16 @@
 const express = require('express')
-const { createEsewaOrder, createCODOrder, getOrders, getAllOrders, getSingleOrder, verifyEsewaPayment, updateOrderStatus, getCompletedPaymentTotal, } = require('../controllers/orderController')
+const {
+    createEsewaOrder,
+    createCODOrder,
+    getOrders,
+    getAllOrders,
+    getSingleOrder,
+    verifyEsewaPayment,
+    updateOrderStatus,
+    getCompletedPaymentTotal,
+    createKhaltiOrder,
+    verifyKhaltiPayment
+} = require('../controllers/orderController')
 
 const router = express.Router()
 
@@ -14,6 +25,8 @@ router.get('/single/:id', getSingleOrder)
 router.post('/cod', createCODOrder)
 router.post('/esewa', createEsewaOrder)
 router.post('/esewa/verify', verifyEsewaPayment)
+router.post('/khalti', createKhaltiOrder) // This route is added for Khalti payment initiation
+router.post('/khalti/verify', verifyKhaltiPayment) // This route is added for Khalti payment verification
 
 router.use(adminProtect)
 router.patch("/:id/status", updateOrderStatus);

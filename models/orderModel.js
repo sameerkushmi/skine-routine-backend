@@ -43,6 +43,15 @@ const OrderSchema = new mongoose.Schema(
             enum: ["pending", "completed", "failed"],
             default: "pending",
         },
+        subtotal: {
+            type: Number,
+            required: true,
+        },
+        shipping: {
+            type: Number,
+            required: true,
+            default: 100,
+        },
         totalAmount: {
             type: Number,
             required: true,
@@ -61,6 +70,13 @@ const OrderSchema = new mongoose.Schema(
         },
         transactionId: {
             type: String, // store esewa/khalti transaction ID, empty for COD
+        },
+        pidx: {
+            type: String, // store pidx for Khalti orders
+        },
+        stockReduced: {
+            type: Boolean,
+            default: false, // to ensure stock is reduced only once
         },
     },
     { timestamps: true }
