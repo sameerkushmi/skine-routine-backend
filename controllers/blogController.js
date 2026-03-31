@@ -4,7 +4,7 @@ const cloudinary = require("../config/cloudinary");
 // ----------------- CREATE BLOG WITH SECTION IMAGES -----------------
 const createBlog = async (req, res) => {
     try {
-        const { title, excerpt } = req.body;
+        const { title, excerpt, category } = req.body;
 
         // ✅ parse JSON string
         const article = JSON.parse(req.body.article);
@@ -41,6 +41,7 @@ const createBlog = async (req, res) => {
         const blog = new Blog({
             title,
             excerpt,
+            category,
             heroImage,
             article: {
                 intro: article?.intro,
@@ -65,7 +66,7 @@ const createBlog = async (req, res) => {
 // ----------------- UPDATE BLOG WITH SECTION IMAGES -----------------
 const updateBlog = async (req, res) => {
     try {
-        const { title, excerpt, article } = req.body;
+        const { title, excerpt, category, article } = req.body;
         const blog = await Blog.findById(req.params.id);
         if (!blog) return res.status(404).json({ message: "Blog not found" });
 
@@ -103,6 +104,7 @@ const updateBlog = async (req, res) => {
 
         blog.title = title || blog.title;
         blog.excerpt = excerpt || blog.excerpt;
+        blog.category = category || blog.category;
         blog.article.intro = article?.intro || blog.article.intro;
         blog.article.conclusion = article?.conclusion || blog.article.conclusion;
 
@@ -141,8 +143,49 @@ const deleteBlog = async (req, res) => {
 // ----------------- OTHER CRUD FUNCTIONS -----------------
 const getAllBlogs = async (req, res) => {
     try {
-        const blogs = await Blog.find().sort({ createdAt: -1 });
-        res.status(200).json({ blogs });
+        const {
+            page = 1,
+            limit = 10,
+            search = "",
+            category
+        } = req.query;
+
+        const query = {};
+
+        // 🔍 Search filter (title or content)
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: "i" } },
+                { content: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        // 📂 Category filter
+        if (category) {
+            query.category = category;
+        }
+
+        // 📄 Pagination setup
+        const skip = (page - 1) * limit;
+
+        const [blogs, total] = await Promise.all([
+            Blog.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit)),
+            Blog.countDocuments(query)
+        ]);
+
+        res.status(200).json({
+            blogs,
+            pagination: {
+                total,
+                page: Number(page),
+                pages: Math.ceil(total / limit),
+                limit: Number(limit)
+            }
+        });
+
     } catch (error) {
         res.status(500).json({ message: "Server error", error });
     }
@@ -189,8 +232,6 @@ const getRelatedBlogs = async (req, res) => {
                 .limit(4)
                 .select("title excerpt heroImage date");
         }
-
-        console.log(relatedBlogs)
 
         res.status(200).json({
             success: true,

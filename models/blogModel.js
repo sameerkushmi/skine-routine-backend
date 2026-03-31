@@ -17,6 +17,7 @@ const SectionSchema = new mongoose.Schema({
 const BlogSchema = new mongoose.Schema({
     title: { type: String, required: true },
     excerpt: { type: String },
+    category: { type: String, required: true },
     heroImage: {
         url: {
             type: String,
