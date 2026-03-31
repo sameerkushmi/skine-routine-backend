@@ -190,11 +190,34 @@ exports.updateOrderStatus = async (req, res) => {
             });
         }
 
+        // ✅ Prevent invalid transitions (optional but recommended)
+        if (order.orderStatus === "delivered") {
+            return res.status(400).json({ message: "Order already delivered" });
+        }
+
         order.orderStatus = status;
 
         // Optional: auto update payment for COD when delivered
         if (status === "delivered" && order.paymentMethod === "cod") {
             order.paymentStatus = "completed";
+        }
+
+        // 🔥 AUTO TIMESTAMPS
+        if (status === "shipped" && !order.shippedAt) {
+            order.shippedAt = new Date();
+        }
+
+        if (status === "delivered" && !order.deliveredAt) {
+            order.deliveredAt = new Date();
+        }
+
+        // Optional: clear if rolled back
+        if (status !== "shipped") {
+            order.shippedAt = null;
+        }
+
+        if (status !== "delivered") {
+            order.deliveredAt = null;
         }
 
         await order.save();
@@ -208,7 +231,7 @@ exports.updateOrderStatus = async (req, res) => {
         console.error(error);
         res.status(500).json({
             success: false,
-            message: "Server error",
+            message: error.message,
         });
     }
 };
@@ -396,7 +419,6 @@ exports.verifyEsewaPayment = async (req, res) => {
         if (response.data.status === "COMPLETE") {
             order.paymentStatus = "completed";
             order.orderStatus = "processing";
-            order.isPaid = true;
             order.paidAt = new Date();
 
             // Reduce stock
@@ -577,11 +599,23 @@ exports.verifyKhaltiPayment = async (req, res) => {
             order.paymentStatus = "completed";
             order.orderStatus = "processing";
             order.transactionId = data.transaction_id;
+            order.paidAt = new Date();
+
+            // Reduce stock
+            for (const item of order.products) {
+                const product = await Product.findById(item.product);
+                product.stock -= item.quantity;
+                await product.save();
+            }
+
 
             await order.save();
 
             return res.json({ success: true });
         } else {
+            order.paymentStatus = "failed";
+            order.orderStatus = "cancelled";
+            await order.save();
             return res.json({ success: false, status: data.status });
         }
 
