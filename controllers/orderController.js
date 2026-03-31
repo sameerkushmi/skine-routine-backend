@@ -139,9 +139,11 @@ exports.getOrders = async (req, res) => {
             .populate("products.product")
             .sort({ createdAt: -1 });
 
+        const totalOrders = await Order.countDocuments({ user: req.userId });
         res.json({
             success: true,
             orders,
+            totalOrders,
         });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
