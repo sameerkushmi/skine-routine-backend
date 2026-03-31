@@ -9,7 +9,8 @@ const {
     updateOrderStatus,
     getCompletedPaymentTotal,
     createKhaltiOrder,
-    verifyKhaltiPayment
+    verifyKhaltiPayment,
+    getPaymentAnalytics
 } = require('../controllers/orderController')
 
 const router = express.Router()
@@ -31,5 +32,6 @@ router.post('/khalti/verify', verifyKhaltiPayment) // This route is added for Kh
 router.use(adminProtect)
 router.patch("/:id/status", updateOrderStatus);
 router.get("/total-revenue", getCompletedPaymentTotal)
+router.get("/analytics", getPaymentAnalytics) // This route is added for fetching analytics data
 
 module.exports = router

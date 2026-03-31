@@ -202,6 +202,12 @@ exports.updateOrderStatus = async (req, res) => {
         // Optional: auto update payment for COD when delivered
         if (status === "delivered" && order.paymentMethod === "cod") {
             order.paymentStatus = "completed";
+            // reduce stock
+            for (const item of order.products) {
+                const product = await Product.findById(item.product);
+                product.stock -= item.quantity;
+                await product.save();
+            }
         }
 
         // 🔥 AUTO TIMESTAMPS
@@ -626,6 +632,129 @@ exports.verifyKhaltiPayment = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Verification failed"
+        });
+    }
+};
+
+// Additional admin routes for analytics, revenue, etc. can be added here
+exports.getPaymentAnalytics = async (req, res) => {
+    try {
+        // 1. Overall Stats
+        const stats = await Order.aggregate([
+            {
+                $group: {
+                    _id: null,
+
+                    totalOrders: { $sum: 1 },
+
+                    totalRevenue: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$paymentStatus", "completed"] },
+                                "$totalAmount",
+                                0
+                            ]
+                        }
+                    },
+
+                    paidOrders: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$paymentStatus", "completed"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    pendingPayments: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$paymentStatus", "pending"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    failedPayments: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$paymentStatus", "failed"] },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        // 2. Payment Method Breakdown
+        const paymentMethods = await Order.aggregate([
+            {
+                $group: {
+                    _id: "$paymentMethod",
+                    count: { $sum: 1 },
+                    revenue: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$paymentStatus", "completed"] },
+                                "$totalAmount",
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        // 3. Daily Revenue (last 7 days)
+        const dailyRevenue = await Order.aggregate([
+            {
+                $match: {
+                    paymentStatus: "completed",
+                    createdAt: {
+                        $gte: new Date(new Date().setDate(new Date().getDate() - 7))
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$createdAt"
+                        }
+                    },
+                    revenue: { $sum: "$totalAmount" },
+                    orders: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // 4. Response
+        res.status(200).json({
+            success: true,
+
+            summary: stats[0] || {
+                totalOrders: 0,
+                totalRevenue: 0,
+                paidOrders: 0,
+                pendingPayments: 0,
+                failedPayments: 0
+            },
+
+            paymentMethods,
+            dailyRevenue
+        });
+
+    } catch (error) {
+        console.error("Analytics Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch analytics"
         });
     }
 };
