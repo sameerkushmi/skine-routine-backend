@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async ({ to, subject, html }) => {
     try {
         await transporter.sendMail({
-            from: `"Skin Routine" <${process.env.SUPPORT_EMAIL}>`,
+            from: `"Skin Routine" <${process.env.EMAIL_USER}>`,
             to,
             subject,
             html,
