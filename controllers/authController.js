@@ -46,15 +46,24 @@ exports.register = async (req, res) => {
 
         const verifyURL = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
-        await sendEmail({
-            to: user.email,
-            subject: "Verify Your Email",
-            html: `
+        try {
+            const info = await sendEmail({
+                to: user.email,
+                subject: "Verify Your Email",
+                html: `
                 <h2>Welcome ${user.name}</h2>
                 <p>Please verify your email by clicking the link below:</p>
                 <a href="${verifyURL}">${verifyURL}</a>
             `,
-        });
+            });
+
+            console.log("Verification email sent:", info);
+        } catch (emailError) {
+            console.error("Email sending error:", emailError);
+            // Optionally, you can choose to delete the user if email fails
+            await UserModel.findByIdAndDelete(user._id);
+            return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+        }
 
         res.status(201).json({
             message: "Registered successfully. Please verify your email.",
@@ -238,11 +247,19 @@ exports.forgotPassword = async (req, res) => {
         // Create reset URL (frontend route)
         const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
 
-        await sendEmail({
-            to: user.email,
-            subject: "Password Reset",
-            html: `<p>Click here to reset password:</p><a href="${resetUrl}">${resetUrl}</a>`
-        });
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: "Password Reset",
+                html: `<p>Click here to reset password:</p><a href="${resetUrl}">${resetUrl}</a>`
+            });
+        } catch (emailError) {
+            console.error("Email sending error:", emailError);
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpire = undefined;
+            await user.save({ validateBeforeSave: false });
+            return res.status(500).json({ success: false, message: "Failed to send password reset email. Please try again." });
+        }
 
         res.status(200).json({
             success: true,
