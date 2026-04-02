@@ -56,6 +56,8 @@ exports.createCODOrder = async (req, res) => {
             paymentMethod: paymentMethod, // "esewa"
             paymentStatus: "pending", // will be updated after eSewa callback
             totalAmount,
+            subtotal,
+            shipping,
         });
 
         res.status(201).json({
