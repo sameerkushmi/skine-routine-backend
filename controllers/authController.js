@@ -41,32 +41,32 @@ exports.register = async (req, res) => {
         const user = new UserModel({ name, email, password });
 
         // --- Email Verification ---
-        const verificationToken = user.createEmailVerificationToken();
+        // const verificationToken = user.createEmailVerificationToken();
         await user.save();
 
-        const verifyURL = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+        // const verifyURL = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
-        try {
-            const info = await sendEmail({
-                to: user.email,
-                subject: "Verify Your Email",
-                html: `
-                <h2>Welcome ${user.name}</h2>
-                <p>Please verify your email by clicking the link below:</p>
-                <a href="${verifyURL}">${verifyURL}</a>
-            `,
-            });
+        // try {
+        //     const info = await sendEmail({
+        //         to: user.email,
+        //         subject: "Verify Your Email",
+        //         html: `
+        //         <h2>Welcome ${user.name}</h2>
+        //         <p>Please verify your email by clicking the link below:</p>
+        //         <a href="${verifyURL}">${verifyURL}</a>
+        //     `,
+        //     });
 
-            console.log("Verification email sent:", info);
-        } catch (emailError) {
-            console.error("Email sending error:", emailError);
-            // Optionally, you can choose to delete the user if email fails
-            await UserModel.findByIdAndDelete(user._id);
-            return res.status(500).json({ message: "Failed to send verification email. Please try again." });
-        }
+        //     console.log("Verification email sent:", info);
+        // } catch (emailError) {
+        //     console.error("Email sending error:", emailError);
+        //     // Optionally, you can choose to delete the user if email fails
+        //     await UserModel.findByIdAndDelete(user._id);
+        //     return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+        // }
 
         res.status(201).json({
-            message: "Registered successfully. Please verify your email.",
+            message: "Registered successfully.", // Please check your email to verify your account.
         });
     } catch (error) {
         console.log("register error:", error);
@@ -140,10 +140,10 @@ exports.login = async (req, res) => {
         if (!isMatch)
             return res.status(400).json({ message: "Invalid credentials" });
 
-        if (!user.isEmailVerified)
-            return res
-                .status(403)
-                .json({ message: "Please verify your email before login." });
+        // if (!user.isEmailVerified)
+        //     return res
+        //         .status(403)
+        //         .json({ message: "Please verify your email before login." });
 
         user.lastLogin = new Date();
         await user.save();
