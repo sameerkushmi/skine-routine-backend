@@ -93,6 +93,7 @@ exports.getProducts = async (req, res) => {
             search,
             sort,
             category,
+            brand,
             skinType,
             concerns,
             ingredients,
@@ -115,6 +116,10 @@ exports.getProducts = async (req, res) => {
         // CATEGORY
         const categories = parseArray(category);
         if (categories.length) Object.assign(query, buildInsensitiveQuery("category", categories));
+
+        // BRAND
+        const brands = parseArray(brand);
+        if (brands.length) Object.assign(query, buildInsensitiveQuery("brand", brands));
 
         // SKIN TYPE
         const skinTypes = parseArray(skinType);
