@@ -11,10 +11,10 @@ connectDB()
 const app = express()
 
 // ================== CORS & Cookie ==================
-app.use(cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
-}));
+// app.use(cors({
+//     origin: process.env.CLIENT_URL,
+//     credentials: true,
+// }));
 app.use(cookieParser());
 
 // ================== JSON Middleware ==================
