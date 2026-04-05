@@ -246,6 +246,7 @@ exports.updateOrderStatus = async (req, res) => {
     }
 };
 
+// GET /api/orders/completed-total
 exports.getCompletedPaymentTotal = async (req, res) => {
     try {
         const result = await Order.aggregate([
@@ -562,7 +563,6 @@ exports.createKhaltiOrder = async (req, res) => {
         order.pidx = response.data.pidx;
         await order.save();
 
-
         res.status(201).json({
             success: true,
             message: "Order created. Proceed to Khalti payment.",
@@ -635,6 +635,129 @@ exports.verifyKhaltiPayment = async (req, res) => {
             success: false,
             message: "Verification failed"
         });
+    }
+};
+
+// POST /api/orders/fonepay/
+// POST /api/orders/fonepay
+exports.createFonepayOrder = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { cartItems, address } = req.body;
+
+        if (!cartItems || cartItems.length === 0) {
+            return res.status(400).json({ message: "Cart is empty" });
+        }
+
+        if (!address || !address.street || !address.city || !address.phone) {
+            return res.status(400).json({ message: "Invalid shipping address" });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        let subtotal = 0;
+        const products = await Promise.all(
+            cartItems.map(async (item) => {
+                const product = await Product.findById(item.productId);
+                if (!product) throw new Error("Product not found");
+                if (product.stock < item.quantity) throw new Error(`${product.name} is out of stock`);
+                subtotal += product.price * item.quantity;
+                return { product: product._id, quantity: item.quantity, price: product.price };
+            })
+        );
+
+        const shipping = 100;
+        const totalAmount = subtotal + shipping;
+
+        // Generate order ID / transaction reference
+        const transactionId = `FP-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+
+        // Create order with pending status
+        const order = await Order.create({
+            user: userId,
+            products,
+            shippingAddress: {
+                address: address.street,
+                city: address.city,
+                state: address.state,
+                postalCode: address.postalCode,
+                country: address.country,
+                phone: address.phone,
+            },
+            paymentMethod: "fonepay",
+            paymentStatus: "pending",
+            orderStatus: "pending",
+            subtotal,
+            shipping,
+            totalAmount,
+            transactionId,
+        });
+
+        // 🔑 Generate security hash
+        const hashString = `${process.env.FONEPAY_MERCHANT_CODE},${transactionId},${totalAmount}`;
+        const DV = crypto.createHmac('sha512', process.env.FONEPAY_SECRET_KEY).update(hashString).digest('hex');
+
+        // Payment URL
+        const paymentUrl = `${process.env.FONEPAY_BASE_URL}/api/merchantRequest?PID=${process.env.FONEPAY_MERCHANT_CODE}&PRN=${transactionId}&AMT=${totalAmount}&CRN=NPR&DV=${DV}&RU=${CLIENT_URL + SUCCESS_URL}`;
+
+        res.status(201).json({
+            success: true,
+            message: "Order created. Proceed to Fonepay payment.",
+            orderId: order._id,
+            paymentUrl,
+            totalAmount
+        });
+
+    } catch (error) {
+        console.error("Fonepay Create Order Error:", error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// POST /api/orders/fonepay/verify
+exports.verifyFonepayPayment = async (req, res) => {
+    try {
+        const { transactionId } = req.body;
+
+        if (!transactionId) return res.status(400).json({ message: "Transaction ID required" });
+
+        const order = await Order.findOne({ transactionId });
+        if (!order) return res.status(404).json({ message: "Order not found" });
+
+        // Call Fonepay verification endpoint
+        const hashString = `${process.env.FONEPAY_MERCHANT_CODE},${transactionId}`;
+        const DV = crypto.createHmac('sha512', process.env.FONEPAY_SECRET_KEY).update(hashString).digest('hex');
+
+        const verifyUrl = `${process.env.FONEPAY_BASE_URL}/api/merchantRequest/verificationMerchant?PID=${process.env.FONEPAY_MERCHANT_CODE}&PRN=${transactionId}&DV=${DV}`;
+
+        const response = await axios.get(verifyUrl);
+
+        // Fonepay returns XML or JSON (depends on version)
+        if (response.data && response.data.statusCode === "0") {
+            order.paymentStatus = "completed";
+            order.orderStatus = "processing";
+            order.paidAt = new Date();
+
+            // Reduce stock
+            for (const item of order.products) {
+                const product = await Product.findById(item.product);
+                product.stock -= item.quantity;
+                await product.save();
+            }
+
+            await order.save();
+            return res.json({ success: true, message: "Payment verified", orderId: order._id });
+        } else {
+            order.paymentStatus = "failed";
+            order.orderStatus = "cancelled";
+            await order.save();
+            return res.status(400).json({ success: false, message: "Payment failed" });
+        }
+
+    } catch (error) {
+        console.error("Fonepay Verify Error:", error.response?.data || error.message);
+        res.status(500).json({ success: false, message: "Verification failed" });
     }
 };
 
