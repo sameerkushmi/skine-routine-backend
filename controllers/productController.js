@@ -115,13 +115,16 @@ exports.getProducts = async (req, res) => {
         // SEARCH
         if (search) query.name = { $regex: search, $options: "i" };
 
+        // collect $or-based filters here and combine with $and later
+        const andConditions = [];
+
         // CATEGORY
         const categories = parseArray(category);
-        if (categories.length) Object.assign(query, buildInsensitiveQuery("category", categories));
+        if (categories.length) andConditions.push(buildInsensitiveQuery("category", categories));
 
         // BRAND
         const brands = parseArray(brand);
-        if (brands.length) Object.assign(query, buildInsensitiveQuery("brand", brands));
+        if (brands.length) andConditions.push(buildInsensitiveQuery("brand", brands));
 
         // SKIN TYPE
         const skinTypes = parseArray(skinType);
@@ -138,6 +141,16 @@ exports.getProducts = async (req, res) => {
         // INGREDIENTS
         const ingredientArr = parseArray(ingredients);
         if (ingredientArr.length) query.ingredients = { $in: toRegexArray(ingredientArr) };
+
+        // If we collected any $or-based filters (category/brand), combine them
+        // with other query conditions using $and so filters are applied together.
+        if (andConditions.length) {
+            if (Object.keys(query).length) {
+                query = { $and: [...andConditions, query] };
+            } else {
+                query = andConditions.length === 1 ? andConditions[0] : { $and: andConditions };
+            }
+        }
 
         // PRICE FILTER
         if (minPrice || maxPrice) {
