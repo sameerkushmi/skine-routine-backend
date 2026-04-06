@@ -23,7 +23,8 @@ const ProductSchema = new mongoose.Schema({
             type: String,
             required: true,
         }
-    }], // URLs
+    }],
+    weight: { type: String }, // e.g., '50ml'
     price: { type: Number, required: true },
     oldPrice: { type: Number }, // for discounts
     stock: { type: Number, default: 0 }, // inventory count

@@ -13,6 +13,7 @@ exports.createProduct = async (req, res) => {
             shortDescription,
             category,
             price,
+            weight,
             oldPrice,
             stock,
             sku,
@@ -65,6 +66,7 @@ exports.createProduct = async (req, res) => {
             category,
             skinType,
             concerns,
+            weight: weight || '',
             price: Number(price),
             oldPrice: Number(oldPrice),
             stock: Number(stock),
@@ -293,6 +295,7 @@ exports.updateProduct = async (req, res) => {
         product.description = req.body.description || product.description;
         product.shortDescription = req.body.shortDescription || product.shortDescription;
         product.category = req.body.category || product.category;
+        product.weight = req.body.weight || product.weight;
         product.price = req.body.price || product.price;
         product.oldPrice = req.body.oldPrice !== undefined ? req.body.oldPrice : product.oldPrice;
         product.stock = req.body.stock !== undefined ? req.body.stock : product.stock;
