@@ -25,15 +25,13 @@ router.put('/update', protect, upload.single('avatar'), updateUser)
 // addresses routes
 router.post('/add/address', protect, addAddress)
 router.get('/get-all/addresses', protect, getAddresses)
-router.put('/update/address/:index', protect, updatedAddress)
-router.delete('/delete/address/:index', protect, deleteAddress)
 
 router.put('/change/password', protect, changePassword)
 
-router.use(protect, adminProtect);
-
-router.post('/create', upload.single('avatar'), createUser)
-router.get('/get-all', getAllUsers)
-router.delete('/delete/:id', deleteUser)
+router.post('/create', protect, adminProtect, upload.single('avatar'), createUser)
+router.get('/get-all', protect, adminProtect, getAllUsers)
+router.put('/update/address/:index', protect, updatedAddress)
+router.delete('/delete/address/:index', protect, deleteAddress)
+router.delete('/delete/:id', protect, adminProtect, deleteUser)
 
 module.exports = router
